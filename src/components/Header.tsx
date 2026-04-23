@@ -20,7 +20,7 @@ export default function Header() {
           <div className="flex items-center gap-3">
             <div className="text-right leading-none">
                <p className="text-sm font-semibold">{user.name}</p>
-               <p className="text-[10px] text-slate-400 uppercase">{user.email}</p>
+               <p className="text-[10px] text-slate-400 uppercase">{user.username}</p>
             </div>
             <div className="w-9 h-9 bg-slate-700 rounded-full flex items-center justify-center border border-slate-600 font-bold uppercase text-sm">
                {user.name.substring(0, 2)}

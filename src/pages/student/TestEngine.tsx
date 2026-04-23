@@ -4,11 +4,13 @@ import { authFetch } from '../../lib/api';
 import { useStore } from '../../store/useStore';
 import { Activity, Clock, ShieldAlert, CheckCircle2, Lock } from 'lucide-react';
 import { BlockMath } from 'react-katex';
+import { useLanguage } from '../../lib/LanguageContext';
 
 export default function TestEngine() {
   const { testId } = useParams();
   const navigate = useNavigate();
   const { user } = useStore();
+  const { t } = useLanguage();
   
   const [test, setTest] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -98,12 +100,52 @@ export default function TestEngine() {
         const qs = await authFetch(`/api/tests/${testId}/questions`);
         setQuestions(qs);
 
-        // Recover autosaved answers
-        const saved = localStorage.getItem(`exam_draft_${testId}`);
-        if (saved) {
-          try {
-            setAnswers(JSON.parse(saved));
-          } catch(e) {}
+        // Check for active attempt to resume
+        const activeRes = await authFetch(`/api/student/tests/${testId}/active-attempt`);
+        if (activeRes && activeRes.attempt) {
+          setAttemptId(activeRes.attempt.id);
+          setWarnings(activeRes.attempt.warnings || 0);
+          
+          // Construct answers from server
+          const serverAnswers: Record<string, string> = {};
+          activeRes.answers.forEach((a: any) => {
+            serverAnswers[a.questionId] = a.answer;
+          });
+          
+          // Recover autosaved answers (local storage takes priority for fresh input)
+          const saved = localStorage.getItem(`exam_draft_${testId}`);
+          if (saved) {
+            try {
+              const localAnswers = JSON.parse(saved);
+              setAnswers({ ...serverAnswers, ...localAnswers });
+            } catch(e) {
+              setAnswers(serverAnswers);
+            }
+          } else {
+            setAnswers(serverAnswers);
+          }
+
+          // Calculate remaining time based on start time and duration
+          const elapsed = Date.now() - activeRes.attempt.startedAt;
+          const remaining = durationMs - elapsed;
+          
+          if (remaining <= 0) {
+            // If time is up, we can set hasStarted to true and let the timer submit it, 
+            // but safer to just set it to a very small positive or zero
+            setTimeLeft(0);
+          } else {
+            setTimeLeft(remaining);
+          }
+          
+          setHasStarted(true);
+        } else {
+          // Recover autosaved answers for fresh attempt
+          const saved = localStorage.getItem(`exam_draft_${testId}`);
+          if (saved) {
+            try {
+              setAnswers(JSON.parse(saved));
+            } catch(e) {}
+          }
         }
       } catch(e) {}
     }
@@ -223,20 +265,19 @@ export default function TestEngine() {
      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
   };
 
-  if (!test) return <div className="p-10 text-center font-mono text-[10px] uppercase text-slate-500 tracking-widest">Initializing Secure Engine...</div>;
+  if (!test) return <div className="p-10 text-center font-mono text-[10px] uppercase text-slate-500 tracking-widest">{t('initializingEngine')}</div>;
 
   if (showViolationOverlay) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-rose-900 min-h-screen fixed inset-0 z-50 text-white selection:bg-rose-500">
         <ShieldAlert className="w-24 h-24 mb-6 text-rose-400 animate-pulse" />
-        <h1 className="text-4xl font-black uppercase tracking-widest mb-4 text-center">Security Violation</h1>
+        <h1 className="text-4xl font-black uppercase tracking-widest mb-4 text-center">{t('securityViolation')}</h1>
         <p className="text-rose-200 text-center max-w-lg text-lg mb-8 font-medium">
-          You have left the secure exam environment! The current question has been blocked as a penalty.
-          Return to fullscreen immediately or the exam will be permanently terminated.
+          {t('violationNotice')}
         </p>
         <div className="text-8xl font-black font-mono mb-12 drop-shadow-2xl">{violationTimeLeft}s</div>
         <button onClick={handleResume} className="px-10 py-5 bg-white text-rose-900 font-black uppercase tracking-widest text-sm rounded-xl hover:bg-rose-50 transition transform hover:scale-105 shadow-2xl">
-          Resume Secure Exam
+          {t('resumeSecureExam')}
         </button>
       </div>
     );
@@ -248,17 +289,17 @@ export default function TestEngine() {
         <div className="bg-white p-10 rounded-xl shadow-lg border border-slate-200 max-w-lg w-full text-center">
           <ShieldAlert className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-800 mb-2">{test.title}</h2>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">Secure Environment</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">{t('secureEnvironment')}</p>
           
           <div className="text-left space-y-4 mb-8 bg-slate-50 p-6 rounded-lg text-sm text-slate-700 font-medium border border-slate-100">
-            <p>• The exam will be displayed in <strong>Fullscreen Mode</strong>.</p>
-            <p>• Do not switch tabs or exit fullscreen. This will trigger the Anti-Cheat system.</p>
-            <p>• Duration: <strong>{test.durationLimit} minutes</strong>.</p>
-            <p className="text-rose-600">3 violations will result in automatic failure and test termination.</p>
+            <p>{t('fullscreenPolicy')}</p>
+            <p>{t('antiCheatNotice')}</p>
+            <p>{t('duration')}: <strong>{test.durationLimit} {t('minLimit')}</strong>.</p>
+            <p className="text-rose-600">{t('violationPolicy')}</p>
           </div>
 
           <button onClick={startExam} className="w-full bg-indigo-600 text-white py-4 rounded-lg font-bold text-xs hover:bg-indigo-700 transition-colors uppercase tracking-widest shadow-md">
-            Acknowledge & Start Exam
+            {t('acknowledgeStart')}
           </button>
         </div>
       </div>
@@ -270,18 +311,18 @@ export default function TestEngine() {
       <div className="flex-1 flex flex-col items-center justify-center p-8">
         <div className="bg-white p-10 rounded-xl shadow-lg border border-slate-200 max-w-lg w-full text-center">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-800 mb-2">Exam Completed</h2>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">Responses uploaded to secure storage</p>
+          <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-800 mb-2">{t('examCompleted')}</h2>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-8">{t('responsesUploaded')}</p>
           
           <div className="bg-slate-50 p-6 rounded-lg mb-8 border border-slate-100 text-center">
              <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-relaxed">
-               Your submission has been securely recorded.<br/><br/>
-               <span className="text-indigo-600">Scores and detailed review analytical blanks will be published directly to your portal once the Examiner officially closes the session for all participants.</span>
+               {t('submissionNotice')}<br/><br/>
+               <span className="text-indigo-600">{t('gradeNotice')}</span>
              </p>
           </div>
 
           <button onClick={() => navigate('/student')} className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-[11px] hover:bg-slate-800 transition-colors uppercase tracking-widest">
-            Return to Directory
+            {t('returnToDirectory')}
           </button>
         </div>
       </div>
@@ -303,13 +344,13 @@ export default function TestEngine() {
         <div className="flex items-center space-x-6">
            <h1 className="text-sm font-bold uppercase tracking-tight text-slate-800">{test.title}</h1>
            <span className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold uppercase tracking-widest text-slate-600 font-mono">
-             Q {currentQ + 1} of {questions.length}
+             Q {currentQ + 1} {t('of')} {questions.length}
            </span>
         </div>
         <div className="flex items-center space-x-6">
           <div className="flex items-center text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
             <ShieldAlert className="w-4 h-4 mr-2" />
-            <span className="text-[11px] font-bold uppercase tracking-widest">Warnings: {warnings}/3</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest">{t('warnings')}: {warnings}/3</span>
           </div>
           <div className="flex items-center text-indigo-700 bg-indigo-50 px-4 py-1.5 rounded-lg border border-indigo-100">
             <Clock className="w-4 h-4 mr-2" />
@@ -328,7 +369,7 @@ export default function TestEngine() {
       >
         {/* Left Side: Navigation Map */}
         <div className="w-64 bg-white border-r border-slate-200 p-6 overflow-y-auto hidden md:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Question Map</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">{t('questionMap')}</p>
           <div className="grid grid-cols-4 gap-2">
             {questions.map((_, idx) => (
               <button 
@@ -353,9 +394,9 @@ export default function TestEngine() {
              
              {/* Render Prompt */}
              <div className="mb-8 min-h-[120px]">
-               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Problem Statement</h3>
+               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">{t('problemStatement')}</h3>
                {!q ? (
-                 <p className="text-slate-500 italic text-sm">No questions available in this engine.</p>
+                 <p className="text-slate-500 italic text-sm">{t('noQuestionsAvailable') || 'No questions available'}</p>
                ) : q.type === 'math' ? (
                  <div className="text-lg"><BlockMath math={q.question || '\\text{No Question Content}'} errorColor={'#cc0000'} /></div>
                ) : (
@@ -367,9 +408,9 @@ export default function TestEngine() {
              {blockedQuestions.includes(q?.id) ? (
                 <div className="p-8 bg-rose-50 border-2 border-rose-100 rounded-xl text-center my-6">
                   <Lock className="w-12 h-12 text-rose-400 mx-auto mb-4" />
-                  <h4 className="text-rose-800 font-black uppercase tracking-widest text-sm mb-2">Question Locked</h4>
+                  <h4 className="text-rose-800 font-black uppercase tracking-widest text-sm mb-2">{t('questionLocked')}</h4>
                   <p className="text-rose-600 text-xs font-medium max-w-sm mx-auto leading-relaxed">
-                    Access to this specific question was permanently revoked due to a security violation (tab switching or exiting fullscreen).
+                    {t('lockNotice')}
                   </p>
                 </div>
              ) : (
@@ -395,7 +436,7 @@ export default function TestEngine() {
                        type="text" 
                        value={answers[q?.id] || ''} 
                        onChange={(e) => setAnswers(prev => ({...prev, [q.id]: e.target.value}))}
-                       placeholder={q?.type === 'math' ? 'Enter formula (e.g. 1/2)' : 'Type your answer here...'}
+                       placeholder={q?.type === 'math' ? t('enterFormula') : t('typeAnswer')}
                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white transition-colors outline-none font-mono text-sm shadow-inner"
                      />
                    </div>
@@ -410,7 +451,7 @@ export default function TestEngine() {
                   disabled={currentQ === 0}
                   className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-[11px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
                 >
-                  Previous
+                  {t('previous')}
                 </button>
                 
                 {currentQ === questions.length - 1 ? (
@@ -418,14 +459,14 @@ export default function TestEngine() {
                     onClick={() => submitTest(false)} 
                     className="px-8 py-2.5 bg-rose-600 text-white rounded-lg font-bold text-[11px] uppercase tracking-widest shadow-md hover:bg-rose-700 transition"
                   >
-                    Submit Exam
+                    {t('submitExam')}
                   </button>
                 ) : (
                   <button 
                     onClick={() => setCurrentQ(p => Math.min(questions.length - 1, p + 1))}
                     className="px-8 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-[11px] uppercase tracking-widest shadow-md hover:bg-indigo-700 transition"
                   >
-                    Next Question
+                    {t('nextQuestion')}
                   </button>
                 )}
              </div>

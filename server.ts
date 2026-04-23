@@ -16,7 +16,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT,
-    email TEXT UNIQUE,
+    username TEXT UNIQUE,
     password TEXT,
     role TEXT,
     groupIds TEXT,
@@ -37,6 +37,7 @@ db.exec(`
     startTime INTEGER,
     endTime INTEGER,
     durationLimit INTEGER,
+    attemptLimit INTEGER DEFAULT 1,
     showResult INTEGER,
     showAnswers INTEGER,
     groupIds TEXT,
@@ -79,6 +80,10 @@ try {
   db.exec("ALTER TABLE tests ADD COLUMN isClosed INTEGER DEFAULT 0");
 } catch (e) {}
 
+try {
+  db.exec("ALTER TABLE tests ADD COLUMN attemptLimit INTEGER DEFAULT 1");
+} catch (e) {}
+
 // Helper to hash passwords securely
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 const verifyPassword = (password: string, hash: string) => bcrypt.compareSync(password, hash);
@@ -87,8 +92,8 @@ const verifyPassword = (password: string, hash: string) => bcrypt.compareSync(pa
 const hasAdmin = db.prepare("SELECT * FROM users WHERE role = 'admin' LIMIT 1").get();
 if (!hasAdmin) {
   db.prepare(
-    "INSERT INTO users (id, name, email, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run('u_' + Date.now(), "System Admin", "admin@maqsad.pro", hashPassword("A1234567"), "admin", "[]", Date.now());
+    "INSERT INTO users (id, name, username, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run('u_' + Date.now(), "System Admin", "admin", hashPassword("admin123"), "admin", "[]", Date.now());
 }
 
 const app = express();
@@ -102,10 +107,10 @@ app.use(express.json());
 const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (token == null) return res.sendStatus(401);
+  if (token == null) return res.status(401).json({ error: "No token provided" });
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: "Invalid or expired token" });
     req.user = user;
     next();
   });
@@ -120,21 +125,21 @@ app.post("/api/dev-login", (req, res) => {
   let user = db.prepare("SELECT * FROM users WHERE role = ? LIMIT 1").get(role) as any;
   if (!user) {
     const id = generateId();
-    const email = `dev_${role}@test.com`;
+    const username = `dev_${role}`;
     const name = `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`;
-    db.prepare("INSERT INTO users (id, name, email, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      id, name, email, hashPassword("123"), role, "[]", Date.now()
+    db.prepare("INSERT INTO users (id, name, username, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      id, name, username, hashPassword("123"), role, "[]", Date.now()
     );
     user = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as any;
   }
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
   const { password: _, ...userWithoutPassword } = user;
   res.json({ token, user: { ...userWithoutPassword, groupIds: JSON.parse(user.groupIds || '[]') } });
 });
 
 app.post("/api/login", (req, res) => {
-  const { email, password } = req.body;
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
+  const { username, password } = req.body;
+  const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
   
   if (!user || !verifyPassword(password, user.password || '')) {
     // If verifyPassword fails but plain text matches (for legacy migration local safety)
@@ -147,22 +152,22 @@ app.post("/api/login", (req, res) => {
     }
   }
 
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET);
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET);
   // Don't send password hash to client
   const { password: _, ...userWithoutPassword } = user;
   res.json({ token, user: { ...userWithoutPassword, groupIds: JSON.parse(user.groupIds || '[]') } });
 });
 
 app.post("/api/register", (req, res) => {
-  const { email, password, role, name } = req.body;
+  const { username, password, role, name } = req.body;
   try {
     const id = generateId();
-    db.prepare("INSERT INTO users (id, name, email, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      id, name, email, hashPassword(password), role || "student", "[]", Date.now()
+    db.prepare("INSERT INTO users (id, name, username, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      id, name, username, hashPassword(password), role || "student", "[]", Date.now()
     );
     res.json({ success: true, id });
   } catch (err: any) {
-    res.status(400).json({ error: "Email already exists or invalid data" });
+    res.status(400).json({ error: "Username already exists or invalid data" });
   }
 });
 
@@ -174,8 +179,69 @@ app.get("/api/auth/me", authenticateToken, (req: any, res) => {
 });
 
 app.get("/api/users", authenticateToken, (req, res) => {
-  const users = db.prepare("SELECT id, name, email, role, groupIds, createdAt FROM users").all();
+  const users = db.prepare("SELECT id, name, username, role, groupIds, createdAt FROM users").all();
   res.json(users.map((u: any) => ({ ...u, groupIds: JSON.parse(u.groupIds || '[]') })));
+});
+
+// Admin: Bulk Create Users
+app.post("/api/admin/users/bulk", authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: "Access denied" });
+  
+  const { students, groupId } = req.body; 
+  if (!Array.isArray(students)) return res.status(400).json({ error: "Students list is required" });
+  
+  const generated = [];
+  const insert = db.prepare("INSERT INTO users (id, name, username, password, role, groupIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  
+  try {
+    const groupJson = groupId ? JSON.stringify([groupId]) : JSON.stringify([]);
+    
+    // Use a transaction for performance and atomicity
+    const runBatch = db.transaction((studentList) => {
+      for (const s of studentList) {
+        const id = generateId();
+        const rawPassword = s.password || Math.random().toString(36).substring(2, 10);
+        insert.run(id, s.name, s.username, hashPassword(rawPassword), "student", groupJson, Date.now());
+        generated.push({ name: s.name, username: s.username, id, password: rawPassword });
+      }
+    });
+
+    runBatch(students);
+    res.json({ success: true, users: generated });
+  } catch (err: any) {
+    console.error("Bulk Creation Database Error:", err.message);
+    if (err.message.includes('UNIQUE constraint failed')) {
+      res.status(400).json({ error: "One or more students already have an account with the same ID/Login" });
+    } else {
+      res.status(500).json({ error: "Server Database Error: " + err.message });
+    }
+  }
+});
+
+// Admin: Assign Users to Group
+app.post("/api/admin/groups/:groupId/assign", authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: "Access denied" });
+  
+  const { userIds } = req.body;
+  const groupId = req.params.groupId;
+  
+  const getUser = db.prepare("SELECT groupIds FROM users WHERE id = ?");
+  const updateUser = db.prepare("UPDATE users SET groupIds = ? WHERE id = ?");
+  
+  db.transaction(() => {
+    for (const uid of userIds) {
+      const user = getUser.get(uid) as any;
+      if (user) {
+        let currentGroups = JSON.parse(user.groupIds || '[]');
+        if (!currentGroups.includes(groupId)) {
+          currentGroups.push(groupId);
+          updateUser.run(JSON.stringify(currentGroups), uid);
+        }
+      }
+    }
+  })();
+  
+  res.json({ success: true });
 });
 
 // Groups
@@ -240,33 +306,44 @@ app.get("/api/student/tests", authenticateToken, (req: any, res) => {
   const userGroupIds = JSON.parse(user.groupIds || '[]');
   if (userGroupIds.length === 0) return res.json([]);
   
-  // Create IN clause for groupIds natively with param array
   const allTests = db.prepare("SELECT * FROM tests WHERE isClosed = 0").all() as any[];
-  
-  // Omit tests already completed by this user
-  const myAttempts = db.prepare("SELECT testId FROM attempts WHERE userId = ? AND status = 'completed'").all(req.user.id) as any[];
-  const compIds = myAttempts.map(a => a.testId);
+  const myAttempts = db.prepare("SELECT id, testId, status FROM attempts WHERE userId = ?").all(req.user.id) as any[];
 
   const assignedTests = allTests.filter(t => {
-     if (compIds.includes(t.id)) return false;
      const tGroups = JSON.parse(t.groupIds || '[]');
      return tGroups.some((id: string) => userGroupIds.includes(id));
   });
   
-  res.json(assignedTests.map((t: any) => ({ ...t, groupIds: JSON.parse(t.groupIds || '[]'), showResult: t.showResult === 1, showAnswers: t.showAnswers === 1, isClosed: false })));
+  res.json(assignedTests.map((t: any) => {
+    const testAttempts = myAttempts.filter(a => a.testId === t.id);
+    const activeAttempt = testAttempts.find(a => a.status === 'in_progress');
+    const completedCount = testAttempts.filter(a => a.status === 'completed').length;
+    
+    return { 
+      ...t, 
+      groupIds: JSON.parse(t.groupIds || '[]'), 
+      showResult: t.showResult === 1, 
+      showAnswers: t.showAnswers === 1, 
+      isClosed: false,
+      attemptCount: completedCount,
+      activeAttemptId: activeAttempt ? activeAttempt.id : null,
+      isExhausted: completedCount >= (t.attemptLimit || 1) && !activeAttempt
+    };
+  }));
 });
 
 app.post("/api/tests", authenticateToken, (req: any, res) => {
-  const { title, startTime, endTime, durationLimit, showResult, showAnswers, groupIds } = req.body;
+  const { title, startTime, endTime, durationLimit, attemptLimit, showResult, showAnswers, groupIds } = req.body;
   const id = generateId();
   try {
-    db.prepare("INSERT INTO tests (id, title, createdBy, startTime, endTime, durationLimit, showResult, showAnswers, groupIds, isClosed, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)").run(
+    db.prepare("INSERT INTO tests (id, title, createdBy, startTime, endTime, durationLimit, attemptLimit, showResult, showAnswers, groupIds, isClosed, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)").run(
       id, 
       title || 'Untitled Test', 
       req.user.id, 
       startTime || Date.now(), 
       endTime || Date.now() + 86400000, 
       durationLimit || 60, 
+      attemptLimit || 1,
       showResult ? 1 : 0, 
       showAnswers ? 1 : 0, 
       JSON.stringify(groupIds || []), 
@@ -279,12 +356,13 @@ app.post("/api/tests", authenticateToken, (req: any, res) => {
 });
 
 app.put("/api/tests/:testId", authenticateToken, (req, res) => {
-  const { title, durationLimit, groupIds, isClosed, startTime, endTime } = req.body;
+  const { title, durationLimit, attemptLimit, groupIds, isClosed, startTime, endTime } = req.body;
   // Dynamic update for simplicitiy
   let u = [];
   let p = [];
   if (title !== undefined) { u.push("title = ?"); p.push(title); }
   if (durationLimit !== undefined) { u.push("durationLimit = ?"); p.push(durationLimit); }
+  if (attemptLimit !== undefined) { u.push("attemptLimit = ?"); p.push(attemptLimit); }
   if (isClosed !== undefined) { u.push("isClosed = ?"); p.push(isClosed ? 1 : 0); }
   if (startTime !== undefined) { u.push("startTime = ?"); p.push(startTime); }
   if (endTime !== undefined) { u.push("endTime = ?"); p.push(endTime); }
@@ -321,7 +399,8 @@ app.delete("/api/tests/:testId", authenticateToken, (req, res) => {
 app.get("/api/tests/:testId/results", authenticateToken, (req, res) => {
   const tId = req.params.testId;
   const rawAttempts = db.prepare(`
-    SELECT a.*, u.name as studentName, u.email as studentEmail 
+    SELECT a.*, u.name as studentName, u.email as studentEmail,
+    (SELECT COUNT(*) FROM attempts a2 WHERE a2.userId = a.userId AND a2.testId = a.testId AND a2.startedAt <= a.startedAt) as attemptNumber
     FROM attempts a 
     JOIN users u ON a.userId = u.id 
     WHERE a.testId = ? 
@@ -341,9 +420,9 @@ app.post("/api/teacher/tests/:testId/retake", authenticateToken, (req: any, res)
   
   try {
     if (userId) {
-      db.prepare("UPDATE attempts SET status = 'archived' WHERE testId = ? AND userId = ? AND status = 'completed'").run(testId, userId);
+      db.prepare("UPDATE attempts SET status = 'archived' WHERE testId = ? AND userId = ? AND (status = 'completed' OR status = 'in_progress')").run(testId, userId);
     } else {
-      db.prepare("UPDATE attempts SET status = 'archived' WHERE testId = ? AND status = 'completed'").run(testId);
+      db.prepare("UPDATE attempts SET status = 'archived' WHERE testId = ? AND (status = 'completed' OR status = 'in_progress')").run(testId);
     }
     res.json({ success: true });
   } catch (error: any) {
@@ -413,10 +492,11 @@ app.delete("/api/questions/:qId", authenticateToken, (req, res) => {
 // Attempts
 app.get("/api/student/results", authenticateToken, (req: any, res) => {
   const attempts = db.prepare(`
-    SELECT a.*, t.title as testTitle, t.isClosed 
+    SELECT a.*, t.title as testTitle, t.isClosed, t.showResult,
+    (SELECT COUNT(*) FROM attempts a2 WHERE a2.userId = a.userId AND a2.testId = a.testId AND a2.startedAt <= a.startedAt) as attemptNumber
     FROM attempts a 
     JOIN tests t ON a.testId = t.id 
-    WHERE a.userId = ? 
+    WHERE a.userId = ? AND a.status != 'in_progress'
     ORDER BY a.finishedAt DESC
   `).all(req.user.id);
   res.json(attempts);
@@ -438,6 +518,14 @@ app.get("/api/student/attempts/:attemptId/review", authenticateToken, (req: any,
   const questions = db.prepare("SELECT id, question, type, options, correctAnswer, points FROM questions WHERE testId = ?").all(attempt.testId);
   const answers = db.prepare("SELECT questionId, answer, isCorrect FROM answers WHERE attemptId = ?").all(attempt.id);
   res.json({ questions: questions.map((q: any) => ({ ...q, options: JSON.parse(q.options || '[]') })), answers });
+});
+
+app.get("/api/student/tests/:testId/active-attempt", authenticateToken, (req: any, res) => {
+  const attempt = db.prepare("SELECT * FROM attempts WHERE testId = ? AND userId = ? AND status = 'in_progress' ORDER BY startedAt DESC LIMIT 1").get(req.params.testId, req.user.id) as any;
+  if (!attempt) return res.json(null);
+  
+  const answers = db.prepare("SELECT questionId, answer FROM answers WHERE attemptId = ?").all(attempt.id);
+  res.json({ attempt, answers });
 });
 
 app.post("/api/attempts", authenticateToken, (req, res) => {

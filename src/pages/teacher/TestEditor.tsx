@@ -215,7 +215,10 @@ export default function TestEditor() {
                   <tbody className="text-sm font-medium text-slate-700">
                     {results.map((r) => (
                       <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                        <td className="py-3 px-4">{r.studentName}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-800">{r.studentName}</div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Attempt #{r.attemptNumber}</div>
+                        </td>
                         <td className="py-3 px-4 text-indigo-600 font-bold">{r.score}</td>
                         <td className="py-3 px-4">{r.totalQuestions}</td>
                         <td className="py-3 px-4">
@@ -334,6 +337,15 @@ export default function TestEditor() {
                   type="number" 
                   value={test.durationLimit || 60} 
                   onChange={e => updateTestSettings('durationLimit', parseInt(e.target.value))} 
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm font-medium transition-all shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Attempt Limit</label>
+                <input 
+                  type="number" 
+                  value={test.attemptLimit || 1} 
+                  onChange={e => updateTestSettings('attemptLimit', parseInt(e.target.value))} 
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm font-medium transition-all shadow-sm"
                 />
               </div>

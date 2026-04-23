@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthListener } from './components/AuthListener';
+import { LanguageProvider } from './lib/LanguageContext';
 import { useStore } from './store/useStore';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -27,27 +28,29 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
 export default function App() {
   return (
     <Router>
-      <AuthListener>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/admin/*" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/teacher/*" element={
-            <ProtectedRoute allowedRoles={['teacher']}>
-              <TeacherDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/student/*" element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <StudentDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/" element={<HomeRedirect />} />
-        </Routes>
-      </AuthListener>
+      <LanguageProvider>
+        <AuthListener>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/admin/*" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/*" element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/*" element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/" element={<HomeRedirect />} />
+          </Routes>
+        </AuthListener>
+      </LanguageProvider>
     </Router>
   );
 }

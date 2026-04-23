@@ -5,7 +5,7 @@ export type Role = 'admin' | 'teacher' | 'student';
 export interface UserProfile {
   id: string;
   name: string;
-  email: string;
+  username: string;
   role: Role;
   groupId?: string;
   createdAt: number;

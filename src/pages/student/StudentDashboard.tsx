@@ -7,6 +7,7 @@ import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import TestEngine from './TestEngine';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import { useLanguage } from '../../lib/LanguageContext';
 
 export default function StudentDashboard() {
   return (
@@ -20,6 +21,7 @@ export default function StudentDashboard() {
 function StudentPortal() {
   const { user, setUser } = useStore();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const handleLogout = () => {
     setToken('');
     setUser(null);
@@ -92,25 +94,25 @@ function StudentPortal() {
         {/* Navigation Sidebar */}
         <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 p-4">
           <div className="mb-6">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Portal Menu</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{t('portalMenu')}</p>
             <nav className="space-y-1">
               <button 
                 onClick={() => setActiveTab('overview')}
                 className={`w-full flex items-center space-x-3 text-left px-4 py-3 rounded-lg font-bold text-xs uppercase tracking-tight transition ${activeTab === 'overview' ? 'bg-indigo-50 border border-indigo-100 text-indigo-700' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
                 <Activity className="w-4 h-4" />
-                <span>Overview & Stats</span>
+                <span>{t('overview')}</span>
               </button>
               <button 
                 onClick={() => setActiveTab('active')}
                 className={`w-full flex items-center space-x-3 text-left px-4 py-3 rounded-lg font-bold text-xs uppercase tracking-tight transition ${activeTab === 'active' ? 'bg-indigo-50 border border-indigo-100 text-indigo-700' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
                 <Calendar className="w-4 h-4" />
-                <span>My Active Exams</span>
+                <span>{t('activeTasks')}</span>
               </button>
               <button 
                 onClick={() => setActiveTab('completed')}
                 className={`w-full flex items-center space-x-3 text-left px-4 py-3 rounded-lg font-bold text-xs uppercase tracking-tight transition ${activeTab === 'completed' ? 'bg-indigo-50 border border-indigo-100 text-indigo-700' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Completed Records</span>
+                <span>{t('completedRecords')}</span>
               </button>
             </nav>
           </div>
@@ -118,7 +120,7 @@ function StudentPortal() {
           <div className="mt-auto">
             <button onClick={handleLogout} className="w-full flex items-center justify-center space-x-2 text-center px-4 py-3 bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg font-bold text-[11px] uppercase tracking-widest transition">
               <LogOut className="w-4 h-4" />
-              <span>Secure Logout</span>
+              <span>{t('secureLogout')}</span>
             </button>
           </div>
         </aside>
@@ -137,20 +139,20 @@ function StudentPortal() {
           {activeTab === 'overview' && (
             <div className="flex-1 overflow-y-auto space-y-6">
                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-                 <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-6">Performance Dashboard</h2>
+                 <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-6">{t('performanceDashboard')}</h2>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl flex flex-col justify-center items-center">
-                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Exams Taken</span>
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{t('examsTaken')}</span>
                        <span className="text-3xl font-black text-slate-800 font-mono">{results.length}</span>
                     </div>
                     <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl flex flex-col justify-center items-center">
-                       <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Average Score</span>
+                       <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">{t('averageScore')}</span>
                        <span className="text-3xl font-black text-indigo-600 font-mono">
                          {results.length > 0 ? Math.round(results.reduce((acc, r) => acc + (r.score || 0), 0) / results.length) : 0}
                        </span>
                     </div>
                     <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-xl flex flex-col justify-center items-center">
-                       <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">Success Rate</span>
+                       <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">{t('successRate')}</span>
                        <span className="text-3xl font-black text-emerald-600 font-mono">
                          {results.length > 0 ? Math.round((results.filter(r => (r.score || 0) >= 50).length / results.length) * 100) : 0}%
                        </span>
@@ -161,30 +163,31 @@ function StudentPortal() {
                <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
                  <div className="p-8 border-b border-slate-100 flex items-center justify-between shadow-sm z-10 relative">
                     <div>
-                       <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-1">Calendar & Schedule</h2>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Upcoming and active examinations</p>
+                       <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-1">{t('calendarSchedule')}</h2>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('upcomingExamsDesc')}</p>
                     </div>
                  </div>
                  <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                     {tests.map(t => (
-                       <div key={t.id} className="bg-slate-50 p-5 rounded-xl border border-indigo-100 flex items-center justify-between">
+                     {tests.map(tData => (
+                       <div key={tData.id} className="bg-slate-50 p-5 rounded-xl border border-indigo-100 flex items-center justify-between">
                           <div>
-                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-tight line-clamp-1">{t.title}</h3>
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-tight line-clamp-1">{tData.title}</h3>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 space-y-1">
-                               <p>Start: {new Date(t.startTime).toLocaleDateString()} {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                               <p>End: {new Date(t.endTime).toLocaleDateString()} {new Date(t.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                            </div>
+                              <p>{t('start')}: {new Date(tData.startTime).toLocaleDateString()} {new Date(tData.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                              <p>{t('end')}: {new Date(tData.endTime).toLocaleDateString()} {new Date(tData.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                              {tData.attemptCount > 0 && <p className="text-indigo-600 font-black">{t('previousAttempts')}: {tData.attemptCount}</p>}
+                           </div>
                           </div>
                           <div className="text-right flex flex-col items-end shrink-0 ml-4">
-                            <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-widest rounded mb-2">Scheduled</span>
-                            <span className="text-[10px] font-bold text-slate-500">{t.durationLimit} Min Limit</span>
+                            <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-widest rounded mb-2">{t('scheduled')}</span>
+                            <span className="text-[10px] font-bold text-slate-500">{tData.durationLimit} {t('minLimit')}</span>
                           </div>
                        </div>
                      ))}
                      {tests.length === 0 && (
                        <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl">
                           <Calendar className="w-8 h-8 text-slate-300 mb-3" />
-                          <p className="text-slate-500 font-bold uppercase tracking-tight text-sm">No scheduled exams</p>
+                          <p className="text-slate-500 font-bold uppercase tracking-tight text-sm">{t('noScheduledExams')}</p>
                        </div>
                      )}
                  </div>
@@ -193,36 +196,15 @@ function StudentPortal() {
           )}
 
           {activeTab === 'active' && (
-            <>
-              {/* Join Group Bar */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 shrink-0 flex items-center justify-between">
-                <div>
-                   <h3 className="text-sm font-bold tracking-tight uppercase text-slate-800">Connection Portal</h3>
-                   <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mt-1">Bind to a new group via sys-id</p>
-                </div>
-                <form onSubmit={handleJoinGroup} className="flex space-x-3 w-full max-w-md">
-                  <input 
-                    type="text" 
-                    placeholder="Enter SYS-ID from Teacher"
-                    value={groupId}
-                    onChange={e => setGroupId(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm font-medium transition-all font-mono"
-                  />
-                  <button type="submit" className="px-5 py-2.5 bg-slate-900 text-white rounded-lg font-bold text-[11px] hover:bg-slate-800 transition-colors uppercase tracking-widest shadow-md">
-                    Bind
-                  </button>
-                </form>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
                 <div className="p-8 border-b border-slate-100 flex items-center justify-between shadow-sm z-10 relative">
                    <div>
-                      <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-1">Assigned Tasks</h2>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verify connection stability before initiating</p>
+                      <h2 className="text-lg font-bold tracking-tight text-slate-800 uppercase mb-1">{t('assignedTasks')}</h2>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('verifyNotice')}</p>
                    </div>
                    <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-md flex gap-2 items-center">
                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                       <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-widest">Network Verified</span>
+                       <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-widest">{t('networkVerified')}</span>
                    </div>
                 </div>
                 
@@ -234,17 +216,31 @@ function StudentPortal() {
                          <h3 className="text-base font-bold text-slate-800 uppercase tracking-tight mb-2">{t.title}</h3>
                          
                          <div className="flex-1 space-y-2 mt-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                           <p>Duration: <span className="text-slate-800">{t.durationLimit} Min</span></p>
-                           <p>Status: <span className="text-indigo-600">Active</span></p>
+                           <p>{t('duration')}: <span className="text-slate-800">{t.durationLimit} {t('minLimit')}</span></p>
+                           <p>{t('statusLabel')}: <span className={t.isExhausted ? 'text-rose-500' : 'text-indigo-600'}>{t.isExhausted ? 'EXHAUSTED' : t('active')}</span></p>
+                           <p>Attempts: <span className="text-slate-800">{t.attemptCount || 0} / {t.attemptLimit || 1}</span></p>
                          </div>
 
-                         <div className="mt-8 pt-4 border-t border-slate-200 flex justify-end">
+                         <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between items-center">
+                            {t.isExhausted ? (
+                               <span className="px-2 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded text-[9px] font-bold uppercase tracking-widest">
+                                 Limit Reached
+                               </span>
+                            ) : t.attemptCount > 0 && (
+                              <span className="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[9px] font-bold uppercase tracking-widest">
+                                {t('retakeAvailable')}
+                              </span>
+                            )}
                            <button 
+                             disabled={t.isExhausted}
                              onClick={() => navigate(`/student/test/${t.id}`)}
-                             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition shadow-sm"
+                             className={`flex items-center px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest transition shadow-sm ml-auto ${
+                               t.isExhausted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
+                               t.activeAttemptId ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                             }`}
                            >
                              <Play className="w-3 h-3 mr-2" />
-                             Initiate Session
+                             {t.isExhausted ? 'Locked' : (t.activeAttemptId ? t('resumeSession') : (t.attemptCount > 0 ? t('retrySession') : t('initiateSession')))}
                            </button>
                          </div>
                       </div>
@@ -254,13 +250,12 @@ function StudentPortal() {
                       <div className="col-span-full h-full w-full min-h-[300px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                         <Search className="w-8 h-8 text-slate-300 mb-4" />
                         <p className="text-slate-800 font-bold uppercase tracking-tight mb-2">No exams active</p>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Bind to a group using Sys-ID above</p>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Waiting for administrator group assignment</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            </>
           )}
 
           {activeTab === 'completed' && (
@@ -282,11 +277,16 @@ function StudentPortal() {
                      {results.map((r, i) => (
                        <div key={r.id + i} className="bg-slate-50 p-5 rounded-xl border border-slate-200 flex flex-col relative overflow-hidden">
                          <div className={`absolute top-0 left-0 w-1 h-full ${r.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">{new Date(r.finishedAt).toLocaleString()}</p>
+                         <div className="flex justify-between items-start mb-2 border-b border-slate-200 pb-2">
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{new Date(r.finishedAt).toLocaleString() || 'N/A'}</p>
+                           <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase tracking-widest border border-indigo-100">
+                             Attempt #{r.attemptNumber || 1}
+                           </span>
+                         </div>
                          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-tight line-clamp-1">{r.testTitle || 'Unknown Exam'}</h3>
                          <div className="flex items-center justify-between mt-4 text-xs font-bold font-mono">
                            <span className="text-slate-500">Score</span>
-                           <span className={r.forceFailed ? 'text-rose-600' : 'text-emerald-600'}>{r.isClosed ? r.score : 'Pending...'}</span>
+                           <span className={r.forceFailed ? 'text-rose-600' : 'text-emerald-600'}>{ (r.showResult === 1 || r.isClosed === 1) ? r.score : 'Pending...' }</span>
                          </div>
                          <div className="flex items-center justify-between mt-2 text-xs font-bold font-mono">
                            <span className="text-slate-500">Status</span>

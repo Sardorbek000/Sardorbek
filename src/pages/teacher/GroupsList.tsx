@@ -40,23 +40,6 @@ export default function GroupsList() {
         </h1>
       </div>
 
-      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 w-full max-w-xl">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Create New Class/Group</h3>
-        <form onSubmit={createGroup} className="flex gap-3">
-          <input
-            type="text"
-            placeholder="e.g. Mathematics 101"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm font-medium transition-all shadow-sm"
-            required
-          />
-          <button type="submit" className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-[11px] hover:bg-indigo-700 transition-colors uppercase tracking-widest shadow-md flex items-center">
-            <Plus className="w-4 h-4 mr-1" /> Provision
-          </button>
-        </form>
-      </div>
-
       <div className="pt-2">
         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Active Groups / Classes</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -70,7 +53,6 @@ export default function GroupsList() {
                   {g.id}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4 pt-4 border-t border-slate-100 opacity-60">Distribute ID to students</p>
             </div>
           ))}
 
