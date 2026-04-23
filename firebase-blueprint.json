@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing role and group info",
+      "type": "object",
+      "properties": {
+        "role": { "enum": ["admin", "teacher", "student"] },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "groupId": { "type": "string", "description": "For students" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["role", "name", "email"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "A group created by a teacher",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "teacherId"]
+    },
+    "Test": {
+      "title": "Test",
+      "description": "A test created by a teacher",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "startTime": { "type": "number" },
+        "endTime": { "type": "number" },
+        "durationLimit": { "type": "number", "description": "in minutes" },
+        "showResult": { "type": "boolean" },
+        "showAnswers": { "type": "boolean" },
+        "groupIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "createdBy", "startTime", "endTime"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Question within a test",
+      "type": "object",
+      "properties": {
+        "testId": { "type": "string" },
+        "question": { "type": "string" },
+        "type": { "enum": ["mcq", "math", "text"] },
+        "options": { "type": "array" },
+        "correctAnswer": { "type": "string" },
+        "points": { "type": "number" }
+      },
+      "required": ["question", "type", "correctAnswer", "testId"]
+    },
+    "Attempt": {
+      "title": "Attempt",
+      "description": "A student's attempt for a test",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "testId": { "type": "string" },
+        "score": { "type": "number" },
+        "violations": { "type": "number" },
+        "status": { "enum": ["in-progress", "completed", "failed"] },
+        "startTime": { "type": "number" },
+        "endTime": { "type": "number" }
+      },
+      "required": ["userId", "testId", "status", "startTime"]
+    },
+    "Answer": {
+      "title": "Answer",
+      "description": "Answers submitted in an attempt",
+      "type": "object",
+      "properties": {
+        "questionId": { "type": "string" },
+        "answer": { "type": "string" },
+        "isCorrect": { "type": "boolean" },
+        "pointsEarned": { "type": "number" }
+      },
+      "required": ["questionId", "answer"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user roles and info"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/Group" },
+      "description": "Groups of students"
+    },
+    "/tests/{testId}": {
+      "schema": { "$ref": "#/entities/Test" },
+      "description": "Tests created by teachers"
+    },
+    "/tests/{testId}/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/Question" },
+      "description": "Questions inside a test"
+    },
+    "/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/Attempt" },
+      "description": "Student attempts"
+    },
+    "/attempts/{attemptId}/answers/{answerId}": {
+      "schema": { "$ref": "#/entities/Answer" },
+      "description": "Individual answers for an attempt"
+    }
+  }
+}
